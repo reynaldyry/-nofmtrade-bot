@@ -1,4 +1,7 @@
 import os
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
@@ -17,6 +20,7 @@ Trade smarter. Learn continuously. Manage your risk.
 
 Pilih menu di bawah."""
 
+
 def main_menu():
     return InlineKeyboardMarkup([
         [
@@ -31,8 +35,10 @@ def main_menu():
         ],
     ])
 
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(WELCOME, reply_markup=main_menu())
+
 
 async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -78,15 +84,35 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ])
     )
 
+
 async def home_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     await query.edit_message_text(WELCOME, reply_markup=main_menu())
 
+
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Gunakan /start untuk membuka menu NOFM$TRADE."
     )
+
+
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(b"NOFM$TRADE bot is running")
+
+    def log_message(self, format, *args):
+        return
+
+
+def start_health_server():
+    port = int(os.environ.get("PORT", "10000"))
+    server = HTTPServer(("0.0.0.0", port), HealthHandler)
+    server.serve_forever()
+
 
 def build_app():
     token = os.environ.get("BOT_TOKEN")
@@ -100,5 +126,7 @@ def build_app():
     app.add_handler(CallbackQueryHandler(menu_callback))
     return app
 
+
 if __name__ == "__main__":
+    threading.Thread(target=start_health_server, daemon=True).start()
     build_app().run_polling()
